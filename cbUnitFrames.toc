@@ -4,4 +4,7 @@
 ## Author: Crowbarx
 ## Version: 0.1.2
 
+Libraries\Load_Libraries.xml
+cbUnitFrames.lua
+Modules\Load_Modules.xml
 cbUnitFrames.xml
