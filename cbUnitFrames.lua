@@ -1,47 +1,4 @@
-local MAJOR, MINOR = "cbUnitFrames", 1
-local cbUnitFrames, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
-if not cbUnitFrames then return end
-
-cbUnitFrames.version = GetAddOnMetadata("cbUnitFrames", "Version")
-cbUnitFrames.patch, cbUnitFrames.build, cbUnitFrames.date, cbUnitFrames.toc = ("@project-version@"):match("^(%d+%.%d+)%.?(%d*)%-(%d%d%d%d%d%d)T(%d%d%d%d)$")
-
-local E, L, V, P, G = {}, {}, {}, {}, {}
-cbUnitFrames.E = E
-cbUnitFrames.L = L
-cbUnitFrames.V = V
-cbUnitFrames.P = P
-cbUnitFrames.G = G
-
-function E:NewModule(name, ...)
-	local module = self:GetModule(name)
-	return module
-end
-
-function E:GetModule(name)
-	return self.modules[name]
-end
-
-E.modules = {}
-
-function E:RegisterInitialModule(name, callback)
-	E.modules[name] = callback
-end
-
-function E:Print(msg)
-	print(msg)
-end
-
-function E:StringTitle(str)
-	return str:gsub("^%l", string.upper)
-end
-
-function E:Point(obj, arg1, arg2, arg3, arg4, arg5)
-	obj:SetPoint(arg1, arg2, arg3, arg4, arg5)
-end
-
-function E:Size(obj, width, height)
-	obj:SetSize(width, height)
-end
+DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00cb|cff3399ffU|r|cffffffffnit|cffff3333F|r|cfffffffframes|r - Crowbar Unit Frames loaded.")
 
 function E:GetColorTable(color)
 	return {r = color.r, g = color.g, b = color.b}
@@ -114,7 +71,11 @@ E.db = {
 				comboPoints = {}
 			}
 		},
-		units = {}
+		units = {
+			player = {
+				enable = true,
+			},
+		}
 	}
 }
 E.private = {
