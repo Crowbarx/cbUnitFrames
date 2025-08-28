@@ -18,7 +18,7 @@ end
 function cbUnitFrames_OnEvent(event)
     if event == "PLAYER_ENTERING_WORLD" then
         -- Initialization code here
-    end
+        DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00Crowbar|cff3399ffU|cffff3333F|r Unit Frames Enabled")
 end
 
 -- Frame setup
