@@ -1,0 +1,7 @@
+## Interface: 11200
+## Title: |cff00ff00cb|cff3399ffU|cffff3333F|r - Crowbar Unit Frames
+## Notes: Custom Unit Frames Addon. Use /cb for settings.
+## Author: Crowbarx
+## Version: 0.1
+
+cbUnitFrames.lua
