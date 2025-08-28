@@ -4,4 +4,4 @@
 ## Author: Crowbarx
 ## Version: 0.1.2
 
-cbUnitFrames.lua
+cbUnitFrames.xml
