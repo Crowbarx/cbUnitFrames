@@ -2,12 +2,9 @@
 ## Title: |cff00ff00cb|cff3399ffU|r|cffffffffnit|cffff3333F|r|cfffffffframes|r - Crowbar Unit Frames
 ## Notes: Custom Unit Frames Addon. Use /cb for settings.
 ## Author: Crowbarx
-## Version: 0.3.1
+## Version: 0.4.0
+## SavedVariables: cbUnitFramesDB
 
+embeds.xml
 cbUnitFrames.lua
-Config/Config.lua
-Modules/Player.lua
-Modules/Target.lua
-Modules/Party.lua
-cbUnitFrames.xml
 # Add more modules as needed
