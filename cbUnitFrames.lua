@@ -1,6 +1,17 @@
 -- cbUnitFrames.lua
-local cbUF = LibStub("AceAddon-3.0"):NewAddon("cbUnitFrames", "AceConsole-3.0", "AceEvent-3.0")
+local cbUF = LibStub("AceAddon-3.0"):NewAddon("cbUnitFrames", "AceConsole-3.0", "AceEvent-3.0", "AceConfig-3.0")
 
+
+-- Define a table to hold the default settings for AceDB
+local defaults = {
+    profile = {
+        width = 200,
+        height = 40,
+        healthbarTexture = "ToxiUI-clean",
+        font = "Fonts\\FRIZQT__.TTF",
+        fontSize = 12,
+    }
+}
 -- Store unit frames
 cbUF.frames = {}
 
@@ -31,6 +42,81 @@ function cbUF:HideBlizzardUnitFrames()
 end
 
 function cbUF:OnInitialize()
+    -- Initialize the database with the default settings
+    self.db = LibStub("AceDB-3.0"):New("cbUnitFramesDB", defaults, "Default")
+    
+    -- Create a table of textures for our dropdown menu
+    -- The key is the filename (without .tga), the value is the text shown in the menu.
+    local barTextures = {
+        ["ToxiUI-clean"] = "ToxiUI Clean",
+        ["ToxiUI-dark"] = "ToxiUI Dark",
+        ["bar_tukui"] = "Tukui Style",
+        ["pfUI-R"] = "pfUI Style R",
+        -- Add more of your texture filenames here! For example:
+        -- ["Bezo"] = "Bezo Style",
+        -- ["Minimalist"] = "Minimalist",
+    }
+
+    -- Create the options table
+    self.options = {
+        name = "Crowbar Unit Frames",
+        handler = self,
+        type = 'group',
+        args = {
+            width = {
+                type = 'range',
+                name = 'Frame Width',
+                desc = 'Adjust the width of the unit frames.',
+                min = 50,
+                max = 500,
+                step = 1,
+                get = function(info)
+                    return self.db.profile.width
+                end,
+                set = function(info, value)
+                    self.db.profile.width = value
+                    if self.frames.player then self.frames.player:SetWidth(value) end
+                    if self.frames.target then self.frames.target:SetWidth(value) end
+                end,
+            },
+            fontSize = {
+                type = 'range',
+                name = 'Font Size',
+                desc = 'Adjust the font size of unit frame names.',
+                min = 8,
+                max = 32,
+                step = 1,
+                get = function(info)
+                    return self.db.profile.fontSize
+                end,
+                set = function(info, value)
+                    self.db.profile.fontSize = value
+                    self:UpdateAllFrameTextures() -- We can update all frames at once now
+                end,
+            },
+            -- This is the new dropdown menu for textures
+            healthbarTexture = {
+                order = 4,
+                type = 'select', -- Changed from 'input' to 'select'
+                name = 'Bar Texture',
+                desc = 'Select the texture for the health bars.',
+                values = barTextures, -- Point the dropdown to our table of textures
+                get = function(info)
+                    return self.db.profile.healthbarTexture
+                end,
+                set = function(info, value)
+                    self.db.profile.healthbarTexture = value
+                    self:UpdateAllFrameTextures() -- Call our new update function
+                end,
+            },
+        },
+    }
+
+    -- Register the options table
+    self:RegisterOptionsTable("cbUnitFrames", self.options)
+    LibStub("AceConfigDialog-3.0"):AddToBlizOptions("cbUnitFrames", "cbUnitFrames")
+
+    -- The rest of your initialization
     self:HideBlizzardUnitFrames()
     self:RegisterChatCommand("cb", "ChatCommandHandler")
     self:RegisterChatCommand("cbunitframes", "ChatCommandHandler")
@@ -64,14 +150,20 @@ function cbUF:OnEvent(event, unit) -- Changed "..." to "unit"
 end
 
 function cbUF:ChatCommandHandler(input)
-    self:Print("Ace3 setup successful!")
+    -- Open the config window in Blizzard options
+    if LibStub and LibStub("AceConfigDialog-3.0", true) then
+        LibStub("AceConfigDialog-3.0"):Open("cbUnitFrames")
+    else
+        self:Print("Config window could not be opened. AceConfigDialog-3.0 missing.")
+    end
 end
 
 function cbUF:CreateUnitFrame(unit)
     DEFAULT_CHAT_FRAME:AddMessage("cbUnitFrames: Creating frame for "..unit)
     if self.frames[unit] then return end
 
-    local cfg = self.config
+    -- CHANGED: Point cfg to the new AceDB database
+    local cfg = self.db.profile
     local frame = CreateFrame("Frame", "cbUF_"..unit, UIParent)
     frame:SetWidth(cfg.width)
     frame:SetHeight(cfg.height)
@@ -79,39 +171,32 @@ function cbUF:CreateUnitFrame(unit)
     if unit == "player" then
         frame:SetPoint("CENTER", UIParent, "CENTER", -250, -150)
     else -- target
-    frame:SetPoint("CENTER", UIParent, "CENTER", 250, -150)
-    frame:SetWidth(200)
-    frame:SetHeight(30)
+        frame:SetPoint("CENTER", UIParent, "CENTER", 250, -150)
     end
 
     -- Health bar
     frame.health = CreateFrame("StatusBar", nil, frame)
-    frame.health:ClearAllPoints()
-    frame.health:SetPoint("CENTER", frame, "CENTER", 0, 0)
-    frame.health:SetWidth(200)
-    frame.health:SetHeight(30)
+    frame.health:SetAllPoints(frame)
     
-    -- CORRECTED: Use backslashes for the texture path.
-    frame.health:SetStatusBarTexture("Interface\\AddOns\\cbUnitFrames\\Media\\BarTextures\\ToxiUI-clean.tga")
+    -- CHANGED: Get the texture name from the new AceDB database
+    local tex = self.db.profile.healthbarTexture
+    local texPath = "Interface\\AddOns\\cbUnitFrames\\Media\\BarTextures\\" .. tex .. ".tga"
+    frame.health:SetStatusBarTexture(texPath)
 
-    -- Add fallback background for visibility
+    -- Fallback background (This can be removed if your texture looks fine on its own)
     if not frame.health.bg then
         frame.health.bg = frame.health:CreateTexture(nil, "BACKGROUND")
         frame.health.bg:SetAllPoints(frame.health)
-        frame.health.bg:SetTexture(1, 1, 1, 1) -- solid white
-        frame.health.bg:SetVertexColor(0.2, 0.2, 0.2, 1) -- dark gray
+        frame.health.bg:SetTexture(0.1, 0.1, 0.1, 1) -- solid dark gray
     end
-
-    -- DELETED THE UNNECESSARY BACKGROUND TEXTURE CODE --
 
     if unit == "player" then
         frame.health:SetStatusBarColor(0, 1, 0) -- Green
     else
-        -- This will be updated later based on faction
         frame.health:SetStatusBarColor(1, 0, 0) -- Red
     end
 
-    -- Name text (child of health bar to fix layering)
+    -- Name text
     frame.name = frame.health:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     frame.name:SetFont(cfg.font, cfg.fontSize + 4, "OUTLINE")
     frame.name:SetPoint("CENTER", frame.health, "CENTER")
@@ -138,5 +223,16 @@ function cbUF:UpdateUnitFrame(unit)
         frame:Show()
     else
         frame:Hide()
+    end
+end
+
+function cbUF:UpdateAllFrameTextures()
+    local textureName = self.db.profile.healthbarTexture
+    local texPath = "Interface\\AddOns\\cbUnitFrames\\Media\\BarTextures\\" .. textureName .. ".tga"
+
+    for _, frame in pairs(self.frames) do
+        if frame and frame.health then
+            frame.health:SetStatusBarTexture(texPath)
+        end
     end
 end
