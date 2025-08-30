@@ -1,6 +1,10 @@
 -- cbUnitFrames.lua
 local cbUF = LibStub("AceAddon-3.0"):NewAddon("cbUnitFrames", "AceConsole-3.0", "AceEvent-3.0", "AceConfig-3.0")
 
+-- Create a public table for registering new media
+cbUF.media = {
+    barTextures = {},
+}
 
 -- Define a table to hold the default settings for AceDB
 local defaults = {
@@ -14,14 +18,6 @@ local defaults = {
 }
 -- Store unit frames
 cbUF.frames = {}
-
--- Default config
-cbUF.config = {
-    font = "Fonts\\FRIZQT__.TTF",
-    fontSize = 12,
-    width = 200,
-    height = 40,
-}
 
 -- More aggressive hide function
 function cbUF:HideBlizzardUnitFrames()
@@ -41,83 +37,101 @@ function cbUF:HideBlizzardUnitFrames()
     end
 end
 
+function cbUF:BuildTextureList()
+    local values = {}
+    -- Loop through all textures registered in our public media table
+    for _, textureInfo in pairs(self.media.barTextures) do
+        -- Add them to the format AceGUI expects for a 'select' widget.
+        -- The key is the full texture path, which is what we'll save.
+        -- The value is the friendly name, which is what the user sees.
+        values[textureInfo.path] = textureInfo.name
+    end
+    return values
+end
+
+function cbUF:UpdateAllFramesAppearance()
+    -- Get all the settings from the database at once
+    local cfg = self.db.profile
+    local texPath = cfg.healthbarTexture
+
+    for unit, frame in pairs(self.frames) do
+        if frame and frame.health then
+            -- Apply size
+            frame:SetWidth(cfg.width)
+            frame:SetHeight(cfg.height)
+
+            -- Apply texture
+            frame.health:SetStatusBarTexture(texPath)
+
+            -- Apply color
+            if unit == "player" then
+                frame.health:SetStatusBarColor(0, 1, 0) -- Green
+            else
+                local reaction = UnitReaction(unit, "player")
+                if reaction and reaction >= 5 then
+                    frame.health:SetStatusBarColor(0, 1, 0) -- Friendly (Green)
+                elseif reaction == 4 then
+                    frame.health:SetStatusBarColor(1, 1, 0) -- Neutral (Yellow)
+                else
+                    frame.health:SetStatusBarColor(1, 0, 0) -- Hostile (Red)
+                end
+            end
+            
+            -- Apply font settings
+            if frame.name then
+                frame.name:SetFont(cfg.font, cfg.fontSize + 4, "OUTLINE")
+            end
+        end
+    end
+end
+
 function cbUF:OnInitialize()
-    -- Initialize the database with the default settings
     self.db = LibStub("AceDB-3.0"):New("cbUnitFramesDB", defaults, "Default")
     
-    -- Create a table of textures for our dropdown menu
-    -- The key is the filename (without .tga), the value is the text shown in the menu.
-    local barTextures = {
-        ["ToxiUI-clean"] = "ToxiUI Clean",
-        ["ToxiUI-dark"] = "ToxiUI Dark",
-        ["bar_tukui"] = "Tukui Style",
-        ["pfUI-R"] = "pfUI Style R",
-        -- Add more of your texture filenames here! For example:
-        -- ["Bezo"] = "Bezo Style",
-        -- ["Minimalist"] = "Minimalist",
-    }
-
-    -- Create the options table
     self.options = {
         name = "Crowbar Unit Frames",
         handler = self,
         type = 'group',
         args = {
             width = {
-                type = 'range',
-                name = 'Frame Width',
-                desc = 'Adjust the width of the unit frames.',
-                min = 50,
-                max = 500,
-                step = 1,
-                get = function(info)
-                    return self.db.profile.width
-                end,
+                type = 'range', name = 'Frame Width', min = 50, max = 500, step = 1,
+                get = function(info) return self.db.profile.width end,
                 set = function(info, value)
                     self.db.profile.width = value
-                    if self.frames.player then self.frames.player:SetWidth(value) end
-                    if self.frames.target then self.frames.target:SetWidth(value) end
+                    self:UpdateAllFramesAppearance() -- Call the new function
+                end,
+            },
+            height = {
+                order = 3, type = 'range', name = 'Frame Height', min = 10, max = 200, step = 1,
+                get = function(info) return self.db.profile.height end,
+                set = function(info, value)
+                    self.db.profile.height = value
+                    self:UpdateAllFramesAppearance() -- Call the new function
                 end,
             },
             fontSize = {
-                type = 'range',
-                name = 'Font Size',
-                desc = 'Adjust the font size of unit frame names.',
-                min = 8,
-                max = 32,
-                step = 1,
-                get = function(info)
-                    return self.db.profile.fontSize
-                end,
+                type = 'range', name = 'Font Size', min = 8, max = 32, step = 1,
+                get = function(info) return self.db.profile.fontSize end,
                 set = function(info, value)
                     self.db.profile.fontSize = value
-                    self:UpdateAllFrameTextures() -- We can update all frames at once now
+                    self:UpdateAllFramesAppearance() -- Call the new function
                 end,
             },
-            -- This is the new dropdown menu for textures
             healthbarTexture = {
-                order = 4,
-                type = 'select', -- Changed from 'input' to 'select'
-                name = 'Bar Texture',
-                desc = 'Select the texture for the health bars.',
-                values = barTextures, -- Point the dropdown to our table of textures
-                get = function(info)
-                    return self.db.profile.healthbarTexture
-                end,
+                order = 4, type = 'select', name = 'Bar Texture',
+                values = self:BuildTextureList(),
+                get = function(info) return self.db.profile.healthbarTexture end,
                 set = function(info, value)
                     self.db.profile.healthbarTexture = value
-                    self:UpdateAllFrameTextures() -- Call our new update function
+                    self:UpdateAllFramesAppearance() -- Call the new function
                 end,
             },
         },
     }
 
-    -- Register the options table
     self:RegisterOptionsTable("cbUnitFrames", self.options)
     LibStub("AceConfigDialog-3.0"):AddToBlizOptions("cbUnitFrames", "cbUnitFrames")
 
-    -- The rest of your initialization
-    self:HideBlizzardUnitFrames()
     self:RegisterChatCommand("cb", "ChatCommandHandler")
     self:RegisterChatCommand("cbunitframes", "ChatCommandHandler")
 end
@@ -159,14 +173,14 @@ function cbUF:ChatCommandHandler(input)
 end
 
 function cbUF:CreateUnitFrame(unit)
-    DEFAULT_CHAT_FRAME:AddMessage("cbUnitFrames: Creating frame for "..unit)
-    if self.frames[unit] then return end
-
-    -- CHANGED: Point cfg to the new AceDB database
-    local cfg = self.db.profile
+    -- If frame already exists, just update its appearance
+    if self.frames[unit] then
+        self:UpdateAllFramesAppearance()
+        return
+    end
+    
     local frame = CreateFrame("Frame", "cbUF_"..unit, UIParent)
-    frame:SetWidth(cfg.width)
-    frame:SetHeight(cfg.height)
+    self.frames[unit] = frame
 
     if unit == "player" then
         frame:SetPoint("CENTER", UIParent, "CENTER", -250, -150)
@@ -178,30 +192,12 @@ function cbUF:CreateUnitFrame(unit)
     frame.health = CreateFrame("StatusBar", nil, frame)
     frame.health:SetAllPoints(frame)
     
-    -- CHANGED: Get the texture name from the new AceDB database
-    local tex = self.db.profile.healthbarTexture
-    local texPath = "Interface\\AddOns\\cbUnitFrames\\Media\\BarTextures\\" .. tex .. ".tga"
-    frame.health:SetStatusBarTexture(texPath)
-
-    -- Fallback background (This can be removed if your texture looks fine on its own)
-    if not frame.health.bg then
-        frame.health.bg = frame.health:CreateTexture(nil, "BACKGROUND")
-        frame.health.bg:SetAllPoints(frame.health)
-        frame.health.bg:SetTexture(0.1, 0.1, 0.1, 1) -- solid dark gray
-    end
-
-    if unit == "player" then
-        frame.health:SetStatusBarColor(0, 1, 0) -- Green
-    else
-        frame.health:SetStatusBarColor(1, 0, 0) -- Red
-    end
-
     -- Name text
     frame.name = frame.health:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    frame.name:SetFont(cfg.font, cfg.fontSize + 4, "OUTLINE")
     frame.name:SetPoint("CENTER", frame.health, "CENTER")
-
-    self.frames[unit] = frame
+    
+    -- Set the appearance and update the values
+    self:UpdateAllFramesAppearance()
     self:UpdateUnitFrame(unit)
 end
 
@@ -223,16 +219,5 @@ function cbUF:UpdateUnitFrame(unit)
         frame:Show()
     else
         frame:Hide()
-    end
-end
-
-function cbUF:UpdateAllFrameTextures()
-    local textureName = self.db.profile.healthbarTexture
-    local texPath = "Interface\\AddOns\\cbUnitFrames\\Media\\BarTextures\\" .. textureName .. ".tga"
-
-    for _, frame in pairs(self.frames) do
-        if frame and frame.health then
-            frame.health:SetStatusBarTexture(texPath)
-        end
     end
 end
